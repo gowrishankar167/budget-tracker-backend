@@ -1,9 +1,10 @@
-const express = require('express');
-const router  = express.Router();
-const mongoose = require('mongoose');
+const express    = require('express');
+const router     = express.Router();
+const mongoose   = require('mongoose');
+const authMiddleware = require('../middleware/auth');
 
-// Schema — same as your C++ Transaction struct
 const TransactionSchema = new mongoose.Schema({
+  userId:      { type: mongoose.Schema.Types.ObjectId, required: true },
   type:        { type: String, required: true },
   category:    { type: String, required: true },
   description: { type: String },
@@ -13,10 +14,10 @@ const TransactionSchema = new mongoose.Schema({
 
 const Transaction = mongoose.model('Transaction', TransactionSchema);
 
-// GET all transactions
-router.get('/', async (req, res) => {
+// GET all transactions for logged in user
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const transactions = await Transaction.find().sort({ createdAt: -1 });
+    const transactions = await Transaction.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(transactions);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -24,9 +25,9 @@ router.get('/', async (req, res) => {
 });
 
 // POST add transaction
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const transaction = new Transaction(req.body);
+    const transaction = new Transaction({ ...req.body, userId: req.user.id });
     await transaction.save();
     res.status(201).json(transaction);
   } catch (err) {
@@ -35,7 +36,7 @@ router.post('/', async (req, res) => {
 });
 
 // DELETE transaction
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     await Transaction.findByIdAndDelete(req.params.id);
     res.json({ message: 'Deleted successfully' });
